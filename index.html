@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Flashcards</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css"> <!-- External CSS -->
+</head>
+<body>
+    <!-- Manual Card Modal -->
+    <div class="modal" id="manualCardModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Add Manual Flashcard</div>
+                <button class="close-modal" id="closeManualModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Question</label>
+                    <textarea class="form-input" id="manualQuestion" placeholder="Enter the question..." rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Answer</label>
+                    <textarea class="form-input" id="manualAnswer" placeholder="Enter the answer..." rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tags (comma separated)</label>
+                    <input type="text" class="form-input" id="manualTags" placeholder="e.g., JavaScript, Programming">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelManualCard">Cancel</button>
+                <button class="btn btn-primary" id="saveManualCard">Save Card</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Configuration Modal -->
+    <div class="modal" id="aiConfigModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <div class="modal-title">AI Configuration</div>
+                <button class="close-modal" id="closeAIConfigModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Ollama Base URL</label>
+                    <input type="text" class="form-input" id="aiBaseUrl" placeholder="http://localhost:11434" value="http://localhost:11434">
+                    <small style="color: var(--gray); font-size: 12px;">The URL where Ollama is running</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Model</label>
+                    <select class="form-input" id="aiModel">
+                        <option value="mistral">mistral</option>
+                        <option value="llama2">llama2</option>
+                        <option value="codellama">codellama</option>
+                        <option value="neural-chat">neural-chat</option>
+                    </select>
+                    <small style="color: var(--gray); font-size: 12px;">Select the Ollama model to use</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Temperature (0.0 - 2.0)</label>
+                    <input type="number" class="form-input" id="aiTemperature" min="0" max="2" step="0.1" value="0.7">
+                    <small style="color: var(--gray); font-size: 12px;">Higher = more creative, Lower = more focused</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Max Tokens</label>
+                    <input type="number" class="form-input" id="aiMaxTokens" min="100" max="2000" value="500">
+                    <small style="color: var(--gray); font-size: 12px;">Maximum length of AI response</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Number of Cards</label>
+                    <input type="text" class="form-input" id="aiCardCount" value="3-5">
+                    <small style="color: var(--gray); font-size: 12px;">Can be a number (5) or range (3-5)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">System Prompt</label>
+                    <textarea class="form-input" id="aiSystemPrompt" rows="2">You are a helpful assistant that creates educational flashcards.</textarea>
+                    <small style="color: var(--gray); font-size: 12px;">System instruction for the AI</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Prompt Template</label>
+                    <textarea class="form-input" id="aiPromptTemplate" rows="4">Create {count} educational flashcards about: {topic}
+
+Format each card as:
+Q: [question]
+A: [answer]
+
+Make the questions clear and the answers concise.</textarea>
+                    <small style="color: var(--gray); font-size: 12px;">Use {count} and {topic} as placeholders</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="resetAIConfig">Reset to Defaults</button>
+                <button class="btn btn-secondary" id="cancelAIConfig">Cancel</button>
+                <button class="btn btn-primary" id="saveAIConfig">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Container -->
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <i class="fas fa-brain logo-icon"></i>
+                <div>
+                    <div class="logo-text">AI Flashcards</div>
+                    <div class="logo-sub"></div>
+                </div>
+            </div>
+            
+            <button class="new-deck-btn" id="newDeckBtn">
+                <i class="fas fa-plus-circle"></i> New Deck
+            </button>
+            
+            <div class="deck-list" id="deckList">
+                <!-- Decks will load here -->
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-title">
+                    <span id="currentDeckTitle">Select a Deck</span>
+                    <span class="ai-status-badge" id="aiStatusBadge">SRS Active</span>
+                    <button class="icon-btn" id="aiConfigBtn" title="AI Settings" style="margin-left: 10px; background: none; border: none; color: var(--text); cursor: pointer;">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+                <div class="deck-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-layer-group"></i>
+                        <span id="deckCount">0</span> decks
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-cards"></i>
+                        <span id="totalCards">0</span> cards
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-clock"></i>
+                        <span id="dueCards">0</span> due
+                        <span class="stat-badge due" id="dueBadge">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span id="learningCards">0</span> learning
+                        <span class="stat-badge learning" id="learningBadge">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-check-circle"></i>
+                        <span id="reviewCards">0</span> review
+                        <span class="stat-badge review" id="reviewBadge">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Flashcard Area -->
+            <div class="flashcard-area" id="flashcardArea">
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState">
+                    <i class="fas fa-lightbulb empty-icon"></i>
+                    <div class="empty-title">Welcome to AI Flashcards!</div>
+                    <div class="empty-text">
+                        Create flashcard decks to organize your learning. 
+                        Add cards manually or use AI to generate them.
+                    </div>
+                    <div class="welcome-actions">
+                        <button class="btn btn-primary" id="aiGenerateBtn">
+                            <i class="fas fa-robot"></i> Generate with AI
+                        </button>
+                        <button class="btn btn-secondary" id="manualCreateBtn">
+                            <i class="fas fa-plus-circle"></i> Add Manual Card
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Flashcard Display -->
+                <div id="flashcardDisplay" style="display: none;">
+                    <div class="progress-info" id="progressInfo">
+                        <span id="cardProgress">Card 1 of 1</span>
+                        <span id="srsInfo" style="margin-left: 10px; font-size: 14px;"></span>
+                    </div>
+                    
+                    <div class="flashcard-container">
+                        <div class="flashcard" id="flashcard">
+                            <div class="flashcard-front">
+                                <div class="card-status" id="cardStatusFront">New</div>
+                                <div class="card-question" id="cardQuestion">Loading question...</div>
+                                <div class="card-tags" id="cardTagsFront"></div>
+                                <div class="card-due-info" id="cardDueFront"></div>
+                                <div style="margin-top: 20px; color: var(--gray); font-size: 14px;">
+                                    <i class="fas fa-mouse-pointer"></i> Click or press Space to flip
+                                </div>
+                            </div>
+                            <div class="flashcard-back">
+                                <div class="card-status" id="cardStatusBack">New</div>
+                                <div class="card-answer" id="cardAnswer">Answer will appear here</div>
+                                <div class="card-tags" id="cardTagsBack"></div>
+                                <div class="card-due-info" id="cardDueBack"></div>
+                                <div style="margin-top: 20px; color: var(--gray); font-size: 14px;">
+                                    <i class="fas fa-mouse-pointer"></i> Click to flip back
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Review Buttons -->
+                    <div class="review-buttons" id="reviewButtons" style="display: none;">
+                        <button class="review-btn dont-know" id="againBtn">
+                            <i class="fas fa-redo"></i> Don't Know
+                        </button>
+                        <button class="review-btn hard" id="hardBtn">
+                            <i class="fas fa-frown"></i> Hard
+                        </button>
+                        <button class="review-btn good" id="goodBtn">
+                            <i class="fas fa-meh"></i> Good
+                        </button>
+                        <button class="review-btn easy" id="easyBtn">
+                            <i class="fas fa-smile"></i> Easy
+                        </button>
+                    </div>
+                    
+                    <!-- Navigation Controls -->
+                    <div class="card-controls">
+                        <button class="control-btn" id="prevBtn">
+                            <i class="fas fa-arrow-left"></i> Prev
+                        </button>
+                        <button class="control-btn primary" id="flipBtn">
+                            <i class="fas fa-sync-alt"></i> Flip
+                        </button>
+                        <button class="control-btn" id="nextBtn">
+                            Next <i class="fas fa-arrow-right"></i>
+                        </button>
+                        <button class="control-btn secondary" id="addManualBtn">
+                            <i class="fas fa-plus"></i> Add Card
+                        </button>
+                        <button class="control-btn success" id="aiGenerateFromHereBtn">
+                            <i class="fas fa-robot"></i> More AI
+                        </button>
+                        <button class="control-btn danger" id="deleteCardBtn">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- AI Input -->
+            <div class="ai-input-container">
+                <div class="input-wrapper">
+                    <textarea 
+                        id="aiInput" 
+                        placeholder="Enter a topic for AI to generate flashcards (e.g., 'JavaScript closures', 'Photosynthesis')"
+                        rows="2"></textarea>
+                    <button class="send-btn" id="sendBtn">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="input-footer">
+                    <div class="ai-status" id="aiStatus">
+                        <i class="fas fa-circle" style="color: #10b981;"></i> SRS Status: Active
+                    </div>
+                    <div id="connectionStatus">
+                        Press <kbd>Enter</kbd> to generate cards
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- New Deck Modal -->
+    <div class="modal" id="newDeckModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Create New Deck</div>
+                <button class="close-modal" id="closeDeckModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Deck Name</label>
+                    <input type="text" class="form-input" id="deckNameInput" placeholder="e.g., JavaScript Fundamentals">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description (Optional)</label>
+                    <input type="text" class="form-input" id="deckDescInput" placeholder="What will you learn?">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelDeckBtn">Cancel</button>
+                <button class="btn btn-primary" id="createDeckBtn">Create Deck</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p id="loadingText">Generating flashcards with AI...</p>
+    </div>
+
+    <!-- External JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>
